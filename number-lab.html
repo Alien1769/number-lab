@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>US Number Lab</title>
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #161b22;
+    --line: #263041;
+    --text: #e6edf3;
+    --muted: #8b98a9;
+    --accent: #4ade80;
+    --accent-dim: #1f7a4d;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(120% 120% at 50% 0%, #1a2230 0%, var(--bg) 60%);
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px 48px;
+  }
+  .wrap { width: 100%; max-width: 460px; }
+  h1 { font-size: 1.35rem; margin: 0 0 4px; letter-spacing: .3px; }
+  .sub { color: var(--muted); font-size: .85rem; margin: 0 0 20px; line-height: 1.5; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .number {
+    font-variant-numeric: tabular-nums;
+    font-size: clamp(1.5rem, 8vw, 2.3rem);
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-align: center;
+    margin: 4px 0 14px;
+    word-break: break-all;
+  }
+  .number.pop { animation: pop .25s ease; }
+  @keyframes pop {
+    0% { transform: scale(.94); opacity: .55; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .digits {
+    text-align: center;
+    color: var(--muted);
+    font-size: .8rem;
+    margin-bottom: 18px;
+    font-variant-numeric: tabular-nums;
+  }
+  button {
+    font: inherit;
+    font-weight: 600;
+    border: 0;
+    border-radius: 12px;
+    padding: 16px;
+    width: 100%;
+    cursor: pointer;
+  }
+  .primary { background: var(--accent); color: #06210f; }
+  .primary:active { background: var(--accent-dim); }
+  .ghost {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--line);
+    margin-top: 10px;
+  }
+  .ghost:active { background: #1d2532; }
+  .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .head strong { font-size: .95rem; }
+  .mini { width: auto; padding: 8px 14px; margin: 0; }
+  .opts { display: flex; flex-direction: column; gap: 4px; }
+  label.opt {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: .9rem;
+    color: var(--text);
+    min-height: 46px;
+  }
+  input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+    accent-color: var(--accent);
+    flex: 0 0 auto;
+  }
+  .log { list-style: none; margin: 0; padding: 0; }
+  .log li {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: center;
+    padding: 12px 4px;
+    border-bottom: 1px solid var(--line);
+    font-variant-numeric: tabular-nums;
+    font-size: .95rem;
+  }
+  .log li:last-child { border-bottom: 0; }
+  .log .tag { color: var(--muted); font-size: .72rem; }
+  .empty { color: var(--muted); font-size: .85rem; padding: 6px 4px; }
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 28px;
+    transform: translate(-50%, 20px);
+    background: var(--accent);
+    color: #06210f;
+    font-weight: 600;
+    padding: 12px 20px;
+    border-radius: 999px;
+    opacity: 0;
+    transition: opacity .2s, transform .2s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>US Number Lab</h1>
+    <p class="sub">Generates format-valid United States phone numbers for testing forms and sample data. These numbers do not receive calls or texts.</p>
+
+    <div class="card">
+      <div class="number" id="display">&mdash; &mdash; &mdash;</div>
+      <div class="digits" id="raw">tap generate to begin</div>
+      <button class="primary" id="gen">Generate number</button>
+      <button class="ghost" id="copy">Copy number</button>
+    </div>
+
+    <div class="card">
+      <div class="opts">
+        <label class="opt"><input type="checkbox" id="avoidToll"> Avoid toll-free 8xx area codes</label>
+        <label class="opt"><input type="checkbox" id="avoid555" checked> Avoid 555-01xx reserved lines</label>
+        <label class="opt"><input type="checkbox" id="dashes" checked> Show as (XXX) XXX-XXXX</label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="head">
+        <strong>Recent</strong>
+        <button class="ghost mini" id="clear">Clear</button>
+      </div>
+      <ul class="log" id="log"></ul>
+      <div class="empty" id="empty">No numbers yet.</div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Copied</div>
+
+<script>
+  const els = {
+    display: document.getElementById("display"),
+    raw: document.getElementById("raw"),
+    gen: document.getElementById("gen"),
+    copy: document.getElementById("copy"),
+    clear: document.getElementById("clear"),
+    log: document.getElementById("log"),
+    empty: document.getElementById("empty"),
+    avoidToll: document.getElementById("avoidToll"),
+    avoid555: document.getElementById("avoid555"),
+    dashes: document.getElementById("dashes"),
+    toast: document.getElementById("toast")
+  };
+
+  const TOLL_FREE = new Set(["800", "822", "833", "844", "855", "866", "877", "880", "881", "882", "883", "884", "885", "886", "887", "888", "889"]);
+
+  let current = "";
+  let history = [];
+  let toastTimer;
+
+  function randInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function digits(len) {
+    let out = "";
+    for (let i = 0; i < len; i++) out += randInt(0, 9);
+    return out;
+  }
+
+  function generate() {
+    for (let guard = 0; guard < 1000; guard++) {
+      const area = String(randInt(2, 9)) + digits(2);
+      const exch = String(randInt(2, 9)) + digits(2);
+      const line = digits(4);
+
+      if (area[1] === "1" && area[2] === "1") continue;
+      if (exch[1] === "1" && exch[2] === "1") continue;
+      if (els.avoidToll.checked && TOLL_FREE.has(area)) continue;
+      if (els.avoid555.checked && exch === "555" && line >= "0100" && line <= "0199") continue;
+
+      return { area, exch, line, digits: area + exch + line };
+    }
+    return { area: "212", exch: "555", line: "0199", digits: "2125550199" };
+  }
+
+  function formatNumber(part, useParens) {
+    return useParens
+      ? "(" + part.area + ") " + part.exch + "-" + part.line
+      : part.area + "-" + part.exch + "-" + part.line;
+  }
+
+  function renderLog() {
+    els.log.innerHTML = "";
+    els.empty.style.display = history.length ? "none" : "block";
+    history.forEach((item) => {
+      const li = document.createElement("li");
+      const left = document.createElement("span");
+      left.textContent = item.pretty;
+      const right = document.createElement("span");
+      right.className = "tag";
+      right.textContent = item.digits;
+      li.append(left, right);
+      li.addEventListener("click", () => copyText(item.digits));
+      els.log.appendChild(li);
+    });
+  }
+
+  function showToast(msg) {
+    els.toast.textContent = msg;
+    els.toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => els.toast.classList.remove("show"), 1400);
+  }
+
+  async function copyText(value) {
+    if (!value) return;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = value;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+      }
+      showToast("Copied " + value);
+    } catch (err) {
+      showToast("Copy blocked - press and hold the number");
+    }
+  }
+
+  function generateAndShow() {
+    const n = generate();
+    current = n.digits;
+    els.display.textContent = formatNumber(n, els.dashes.checked);
+    els.raw.textContent = n.digits;
+
+    els.display.classList.remove("pop");
+    void els.display.offsetWidth;
+    els.display.classList.add("pop");
+
+    history.unshift({ pretty: formatNumber(n, els.dashes.checked), digits: n.digits });
+    history = history.slice(0, 8);
+    renderLog();
+  }
+
+  function reformatCurrent() {
+    if (!current) return;
+    const part = {
+      area: current.slice(0, 3),
+      exch: current.slice(3, 6),
+      line: current.slice(6, 10)
+    };
+    els.display.textContent = formatNumber(part, els.dashes.checked);
+  }
+
+  els.gen.addEventListener("click", generateAndShow);
+  els.copy.addEventListener("click", () => copyText(current));
+  els.display.addEventListener("click", () => copyText(current));
+  els.dashes.addEventListener("change", reformatCurrent);
+  els.clear.addEventListener("click", () => {
+    history = [];
+    renderLog();
+  });
+
+  renderLog();
+  generateAndShow();
+</script>
+</body>
+</html>
